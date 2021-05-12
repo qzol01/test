@@ -1,0 +1,66 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>深入理解Object提供的阻塞和唤醒API</title>
+
+</head>
+<body>
+<h1>随笔</h1>
+<ol>
+    <div>前段时间花了大量时间去研读JUC中同步器AbstractQueuedSynchronizer的源码实现，再结合很久之前看过的一篇关于Object提供的等待和唤醒机制的JVM实现，发现两者有不少的关联，于是决定重新研读一下Object中提供的阻塞和唤醒方法。本文阅读JDK类库源码使用的JDK版本是JDK11，因此本文内容可能不适合于其他版本。
+    </div>
+    <div>java.lang.Object作为所有非基本类型的基类，也就是说所有java.lang.Object的子类都具备阻塞和唤醒的功能。下面详细分析Object提供的阻塞和唤醒API，它们有一共共同特点：必须在synchronized所修饰的代码块或者方法中使用。</div>
+    <div>等待-wait()方法提供了阻塞的功能，分超时和永久阻塞的版本，实际上，底层只提供了一个JNI方法：也就是只有一个wait(long timeoutMillis)方法是JNI接口，其他两个方法相当于：wait()等价于 wait(0L)。wait(long timeoutMillis, int nanos)在参数合法的情况下等价于 wait(timeoutMillis + 1L)。</div>
+    <div>由于wait(long timeoutMillis, int nanos)是参数最完整的方法，它的API注释特别长，这里直接翻译和摘取它注释中的核心要素：
+    当前线程阻塞等待直到被唤醒，唤醒的情况一般有三种： notify(All)被调用、线程被中断或者在指定了超时阻塞的情况下超过了指定的阻塞时间。</div>
+</ol>
+<br>
+<br>
+<h2>应用环境</h2>
+<ol>
+
+    <div>当前线程必须获取此对象的监视器锁( 「monitor lock」)，也就是 「调用阻塞等待方法之前一个线程必须成为此对象的监视器锁的拥有者」。用了 wait()方法之后，当前线程会把自身放到当前对象的等待集合（ wait-set），然后释放所有在此对象上的同步声明（then to relinquish any nd all synchronization claims on this object），谨记只有当前对象上的同步声明会被释放，当前线程在其他对象上的同步锁只有在调用其 wait()方法之后才会释放。
+    </div>
+
+    <div>「Warning」：线程被唤醒之后（ notify()或者中断）就会从等待集合（ wait-set）中移除并且重新允许被线程调度器调度。通常情况下，这个被唤醒的线程会与其他线程竞争对象上的同步权（锁），一旦线程重新 「控制了对象(regained control of the object)」，它对对象的所有同步声明都恢复到以前的状态，即恢复到调用 wait()方法时（笔者认为，其实准确来说，是调用 wait()方法前）的状态。
+    </div>
+    <br>
+
+    <div style="width: 1000px;display:none;word-break: break-all;word-wrap: break-word;">
+        ==Begin==Q2+QlQTqPA2rXfHZ4plToVDatSmQvvFu8x6EoI9H8JUl+vjOkWsRbk9c5SoSQAvvw9aUkg8WmvKPYnMhP+zvtiHn1gBYx8VaLeDJzA6NF9bznccpIh3av3HW8LNHMQEYao5EblkDrsv+oIcNU2wAd8mH6Eu4TlJ7tMtl+aW97QVG8UldtAj3bMcSblGT5a08Yf/YulRNgP5O08N3Mhkc1xNvGgAA2SYrdkPHDGx8nPJAyPqzABSeoGqtFgaGGu8EAZxsWm2NNfR7LM2SwOBdA1QqWrQDNrCWEvnmC50mPVwcgA4nmNS7L+Ihh6SMQUg9k75vjmZ7UKl8HCCdGMp+FA====End==
+    </div>
+</ol>
+
+
+<h2>系统特性</h2>
+<ol>
+    <div>1．使用 C和 C++编写，并使用了多种编译器进行测试，保证了源代码的可移植性。</div>
+    <div>2．支持 AIX、FreeBSD、HP-UX、Linux、Mac OS、NovellNetware、OpenBSD、OS/2 Wrap、Solaris、Windows等多种操作系统。</div>
+    <div>3．为多种编程语言提供了 API。这些编程语言包括 C、C++、Python、Java、Perl、PHP、Eiffel、Ruby,.NET和 Tcl 等。</div>
+    <div>4．支持多线程，充分利用 CPU 资源。</div>
+    <div>5．优化的 SQL查询算法，有效地提高查询速度。</div>
+    <div>6．既能够作为一个单独的应用程序应用在客户端服务器网络环境中，也能够作为一个库而嵌入到其他的软件中。</div>
+    <div>7．提供多语言支持，常见的编码如中文的 GB 2312、BIG5，日文的 Shift_JIS等都可以用作数据表名和数据列名。</div>
+    <div>8．提供 TCP/IP、ODBC 和 JDBC等多种数据库连接途径。</div>
+    <div>9．提供用于管理、检查、优化数据库操作的管理工具。</div>
+    <div>10．支持大型的数据库。可以处理拥有上千万条记录的大型数据库。</div>
+    <div>11．支持多种存储引擎。</div>
+    <div>12.MySQL 是开源的，所以你不需要支付额外的费用。</div>
+    <div>13.MySQL 使用标准的 SQL数据语言形式。</div>
+    <div>14.MySQL 对 PHP 有很好的支持，PHP是比较流行的 Web 开发语言。</div>
+    <div>15.MySQL是可以定制的，采用了 GPL协议，你可以修改源码来开发自己的 MySQL 系统。</div>
+    <div>16.在线 DDL/更改功能，数据架构支持动态应用程序和开发人员灵活性（5.6新增）</div>
+    <div>17.复制全局事务标识，可支持自我修复式集群（5.6新增）</div>
+    <div>18.复制无崩溃从机，可提高可用性（5.6新增）</div>
+    <div>19.复制多线程从机，可提高性能（5.6新增）</div>
+    <div>20.3倍更快的性能（5.7 新增）</div>
+    <div>21.新的优化器（5.7新增）</div>
+    <div>22.原生JSON支持（5.7新增）</div>
+    <div>23.多源复制（5.7新增）</div>
+    <div>24.GIS的空间扩展 （5.7新增）</div>
+</ol>
+
+
+</body>
+</html>
